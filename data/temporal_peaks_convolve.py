@@ -175,13 +175,14 @@ if __name__=='__main__':
     truth_pred = ary([labels, prediction]).T
 
     diff_peaks = np.diff(peak_findable, axis=1) # this gives extra information
+
     # examine the incorrectly predicted data:
     for num, ind in enumerate(np.arange(len(peak_findable))[(truth_pred==[2,1]).all(axis=1)]):
         norm_plot(peak_findable[ind])
         norm_plot(wave_forms.loc[ind])
         plt.title(f'{ind=}, amp={amp1[ind]}, {amp2[ind]}')
         plt.show()
-        if num>20:
+        if num>20: # don't have time to examine every single wrongly plotted data
             break
 
     """
