@@ -194,7 +194,8 @@ if __name__=='__main__':
             break
 
     """
-    Log of things to tune:
+    Tunables:
+
 
     Log of failed methods:
 
