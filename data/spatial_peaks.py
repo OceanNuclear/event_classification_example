@@ -176,4 +176,5 @@ if __name__=='__main__':
     Optimization ideas:
     1. tune the 0.05 parameter?
     2. Add division by different values before making the masks
+    3. May even assign confidence score, and raise all of the cases to a human inspector  where the confidence score is low?
     """
