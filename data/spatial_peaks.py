@@ -57,9 +57,16 @@ with open(DATA_PATH + fname, "r") as datafile:
 
     image = image.reshape([16,16])
 
+# We've now looped over the entire file. The only thing that remains is to convert the lists
+# to numpy arrays.
+images = ary(images)
+energies = ary(energies)
+positions = ary(positions)
+images = np.transpose(images.reshape([-1, 16, 16]), axes=[0,2,1])
+
 def is_local_max_2d(image):
     """
-    Determine whether each pixel is a local maximum or not
+    Determine whether each pixel is a local maximum or not by comparing to horizonal and vertical neighbours.
     Note that it will trim all edges,
     i.e. if input has shape(n,m), it will return (n-1,m-1)
     """
@@ -71,6 +78,9 @@ def is_local_max_2d(image):
     return np.logical_and(np.logical_and(mright, mleft), np.logical_and(mtop, mbottom))
 
 def diagonal_max_2d(image):
+    """
+    Compare pixel with diagonal neighbours to see if it is a maximum or not
+    """
     mtl = image[1:-1, 1:-1]>=image[:-2, :-2]
     mtr = image[1:-1, 1:-1]>=image[:-2, 2:]
     mbl = image[1:-1, 1:-1]>=image[2:, :-2]
@@ -78,10 +88,18 @@ def diagonal_max_2d(image):
     return np.logical_and(np.logical_and(mtl, mtr), np.logical_and(mbl, mbr))
 
 def make_wide(image):
+    """
+    Expand the image from nxm to (n+2)x(m+2)
+    by copying the values to the neighbouring edges.
+    """
     wide_image = np.zeros(ary(image.shape)+2)
     wide_image[1:-1, 1:-1] = image
     wide_image[[0,-1],1:-1] = image[[0,-1],:]
     wide_image[1:-1,[0,-1]] = image[:,[0,-1]]
+    wide_image[0,0] = image[0,0]
+    wide_image[-1,-1] = image[-1,-1]
+    wide_image[0,-1] = image[0,-1]
+    wide_image[-1,0] = image[-1,0]
     return wide_image
 
 def is_local_max_2d_wide(image, diagonal=False):
@@ -95,23 +113,17 @@ def is_local_max_2d_wide(image, diagonal=False):
         mask = np.logical_and(diagonal_max_2d(wide_image), mask)
     return mask
 
-# We've now looped over the entire file. The only thing that remains is to convert the lists
-# to numpy arrays.
-images = ary(images)
-energies = ary(energies)
-positions = ary(positions)
-
 if __name__=='__main__':
-    images = np.transpose(images.reshape([-1, 16, 16]), axes=[0,2,1])
-
     laplacian = np.zeros([3,3])
     laplacian[np.unravel_index(range(9)[1::2], (3,3))] = -1
     laplacian[1,1] = 4
+
     gaussian = np.ones([3,3])
     gaussian[np.unravel_index(range(9)[1::2], (3,3))] = 2
     gaussian[1,1] = 4
     gaussian *= 1/16
-    prediction1, prediction2, prediction3 = [], [], []
+
+    prediction1 = []
     for ind, image in enumerate(images):
         # image_curvature = convolve(image, laplacian)
         smooth_image = convolve(image, gaussian)
@@ -120,23 +132,25 @@ if __name__=='__main__':
         local_max_mask = is_local_max_2d_wide(image)
 
         pred1 = np.logical_and(local_max_mask, bulged_mask).sum() # >90 % accuracy
+        """
+        Failed ideas:
+        pred1 = (image[is_local_max_2d_wide(image_curvature, diagonal=True)] > np.percentile(image.flatten(), 245/256*100)).sum() # 87.76 % accuracy
+        pred2 = (image[is_local_max_2d_wide(smooth_image, diagonal=True)] > np.percentile(image.flatten(), 245/256*100)).sum() # 85.13 % accuracy
+        pred2 = (image[peak_local_max(image_curvature)]>np.percentile(image.flatten(), 250/256*100)).sum()
+        pred3 = (image[peak_local_max(smooth_image)]>np.percentile(image.flatten(), 250/256*100)).sum()
+        """
         prediction1.append(pred1)
-        # Unused (failed) methods
-        # pred1 = (image[is_local_max_2d_wide(image_curvature, diagonal=True)] > np.percentile(image.flatten(), 245/256*100)).sum() # 87.76 % accuracy
-        # pred2 = (image[is_local_max_2d_wide(smooth_image, diagonal=True)] > np.percentile(image.flatten(), 245/256*100)).sum() # 85.13 % accuracy
-        # # pred2 = (image[peak_local_max(image_curvature)]>np.percentile(image.flatten(), 250/256*100)).sum()
-        # pred3 = (image[peak_local_max(smooth_image)]>np.percentile(image.flatten(), 250/256*100)).sum()
-        # prediction2.append(pred2)
-        # prediction3.append(pred3)
+
+    # get the labels (truths)
     labels = 2 - (energies==0).sum(axis=1)
     # Peak must be at the center of a blob (contiguous area with 3+ pixels) where curvature is negative in both directions
 
-    print(confusion_matrix(labels, prediction1))
+    print(confusion_matrix(labels, prediction1)) # display result
 
     truth_pred = ary([labels, prediction1]).T
 
-    import sys
-    sys.exit()
+    # Examine reasons for failed cases
+    input('Next, we will display the improperly predicted cases:')
 
     chosen_to_be_examined = (truth_pred==[2,1]).all(axis=1)
     for num, image in enumerate(images[chosen_to_be_examined][:num_samples]):
@@ -147,20 +161,19 @@ if __name__=='__main__':
             image_curvature = convolve(image, laplacian)/image_curvature.max() # introduce some global information
             smooth_image = convolve(image, gaussian)/smooth_image.max()
             smooth_curvature = convolve(smooth_image, laplacian)/smooth_curvature.max()
-            bulged_mask = smooth_curvature>smooth_curvature.max()/8
+            bulged_mask = smooth_curvature>smooth_curvature.max()/1
             local_max_mask = is_local_max_2d_wide(image)
 
-            for img, name in zip([image, image_curvature, smooth_image, smooth_curvature, bulged_mask, local_max_mask], ['image', 'image_curvature', 'smooth_image', 'smooth_curvature', 'bulged_mask', 'local_max_mask']):
+            for img, name in zip([image, image_curvature, smooth_image, smooth_curvature, bulged_mask, local_max_mask],
+                                ['image', 'image_curvature', 'smooth_image', 'smooth_curvature', 'bulged_mask', 'local_max_mask']):
                 sns.heatmap(img)
                 plt.title(f'{ind}: '+name+f' #events={labels[ind]}')
                 plt.show()
-            if len(input('Type any character before presssing enter to move onto the next plot'))>0:
+            if len(input('Enter any character before to move onto the next plot, or ctrl+c to stop. Press only enter to replay this plot.'))>0:
                 replay=False
 
-# OK let's do reverse learning:
-# First, lets examine the characteristics of the peaks vs non-peaks:
-    curvature = ary([convolve(image, laplacian) for image in images])
-    smoothened= ary([convolve(image, gaussian) for image in images])
-    smooth_curve = ary([convolve(smooth_image, laplacian) for smooth_image in smoothened])
-    local_max = ary([is_local_max_2d_wide(image, diagonal=True) for image in images])
-    
+    """
+    Optimization ideas:
+    1. tune the 0.05 parameter?
+    2. Add division by different values before making the masks
+    """

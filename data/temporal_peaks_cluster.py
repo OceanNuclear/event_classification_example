@@ -70,33 +70,32 @@ def scroll(trace, offset, y_width, y_interval=1):
     return ary(points)
 
 if __name__=='__main__':
-    df = pd.read_csv('training_pm_nosat_150k.dat', sep=' ', header=None)
+    df = pd.read_csv('training_pm_nosat_150k.dat', sep=' ', header=None) # lazy way of reading the data
     num_events = df[0]
-    # let's say the number of 
     # df[1] is just an integer 200. I don't know why.
-    # Information which won't be available in the experimental data
+
+    # Information which won't be available in the experimental data (i.e. labels)
     amp1, amp2 = df[2], df[7]
     rise1, rise2 = df[3], df[8]                 # default decay2=0
     decay1, decay2 = df[4], df[9]               # default pos2=0
     offset, pos1, pos2 = df[6], df[5], df[10]   # default pos2=0
-    # Information which will actually be avialble in the experiment
+
+    # Information which will actually be avialble in the experiment (i.e. features)
     wave_forms = df[df.columns[11:]]
     print('Data Read. Extracting useful information out of the data...')
     wave_forms.columns = range(wave_forms.shape[1])
     print("Renamed columns")
 
-    """ #unused step, we don't need
-    np.random.seed(0)
-    noise = np.random.normal(size = wave_forms.shape)
-    noisy_wave = wave_forms + weak_source*noise
-    """
     # Determine the standard deviation of the background
-
-    features = []
     stdev_bg = np.diff(wave_forms.T[:30], axis=0).std(axis=0)
-    # when dealing with experimental data a more sophisticated method would be required since not all traces would have the first 30 values = background
+    # when dealing with experimental data a more sophisticated method of determining the BG variation would be required,
+    # since not all traces may have the first 30 values = background
+
+
+    # classification step
+    features = []
     for num, (ind, trace) in enumerate(wave_forms.iterrows()):
-        if num>30:
+        if num>30: # don't have time to classify all len(wave_forms) samples in this demo.
             break
         print(f'{ind=}, {amp1[ind]=}, {amp2[ind]=}',)
         intersection_paths = scroll(trace.values, offset[ind], y_width=stdev_bg[ind])
@@ -106,17 +105,12 @@ if __name__=='__main__':
         minmax.fit([[0,trace.min(), trace.min()],[len(trace),trace.max(), trace.max()]])
         features.append(minmax.transform(point_cloud))
         print(f'{len(intersection_paths)}')
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        # ax.scatter(*intersection_paths.T, alpha=0.3, marker='+')
-        # plt.title(f'{ind=}, {amp1[ind]=}, {amp2[ind]=}',)
-        # ax.plot(np.arange(len(trace)), trace.values, np.full_like(trace.values, offset[ind]), color='C1')
-        # plt.show()
     features, labels = ary(features), num_events.values
 
-    # DBSCAN requres tuning of the eps
 
+    # displaying the classification results
     for ind, feat in enumerate(features):
+        # !!!! DBSCAN requres tuning of the eps !!!!
         dbs = DBSCAN(eps=0.1)
         pred = dbs.fit_predict(feat)
         fig = plt.figure()
@@ -124,26 +118,28 @@ if __name__=='__main__':
         ax.set_title(f'{ind}: {num_events[ind]} events')
         for lab in range(pred.max()+1):
             ax.scatter(*(feat[pred==lab]).T, label=f'label={lab} has {(pred==lab).sum()} points')
-            # plt.plot(np.arange(len(wave_forms.loc[ind].values)), wave_forms.loc[ind].T, wave_forms.loc[ind].values[:,1].min())
         line = wave_forms.loc[ind].values
         scaled_line = (line-line.min())/(line.max()-line.min())
         plt.plot(np.linspace(0,1, len(scaled_line)), scaled_line, np.zeros(len(scaled_line)))
         plt.legend()
         plt.show()
 
-    # spectral clustering, AgglomerativeClustering, and OPTICS don't work 
-    # spec_clus = SpectralClustering(n_cluster=2)
-    # spec_clus.fit_predict(features[0])
-    # for lab in range(pred.max()+1):
-    #     plt.scatter(*features[0][pred==lab].T)
-    # plt.show()
-
-    # from sklearn.model_selection import train_test_split
-    
-    # train_index, test_index, _, _ = train_test_split(np.arange(len(features)), np.arange(len(features)), test_size=0.1)
     """
     Verdict: 
     Looks like this scroll appraoch is not very easy to use: 
     1. the DBSCAN eps value needs tuning. 
-    2. the outputted labels require some filtering (e.g. remove labels which occurs less than 100 time)
+    2. the outputted labels require some filtering
+        (e.g. remove labels which occurs less than N times, where N=100? or N=len(feat)/30?
+        Or some other filtering condition depending on the location of the point cluster relative to the line?)
+    3. Scolling algorithm parameter that we can tune:
+        3.1 use a different 'scrolling' algorithm: e.g. connect the furthest two cross-over points to extrapolate, instead of the nearest
+        3.2 width of the band used when 'scrolling'
+    4. background determination method
+
+    Log of failed methods:
+    1. Other sklearn.cluster algorithms considered
+        OPTICS: Clearly doesn't work, divides into too many different clusters.
+        And I remember testing one of (SpectralClustering, AgglomerativeClustering) and it also doesn't work. 
+    Note: only these four algorithms were considered because the rest doesn't seem to recognize line clusters.
+    2. 
     """

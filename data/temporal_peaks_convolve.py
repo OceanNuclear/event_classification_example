@@ -8,10 +8,10 @@ import seaborn as sns
 from scipy.signal import find_peaks, find_peaks_cwt
 from sklearn.metrics import confusion_matrix
 
-# rise_min, rise_max = 0.85, 1.15
-rise_min, rise_max = 0.75, 1.2
-# dec_min, dec_max = 1/0.065, 1/0.055
-dec_min, dec_max = 10, 30
+rise_min, rise_max = 0.85, 1.15
+# rise_min, rise_max = 0.75, 1.2
+dec_min, dec_max = 1/0.065, 1/0.055
+# dec_min, dec_max = 10, 30
 
 rise_resolution, dec_resolution = 100, 100
 # average values to be used
@@ -142,7 +142,7 @@ def get_ricker_matrix(length, widths):
     return ary([np.roll(vary_width, i) for i in range(length)])
 
 if __name__=='__main__':
-    df = pd.read_csv('training_pm_nosat_150k.dat', sep=' ', header=None)
+    df = pd.read_csv('training_pm_nosat_150k.dat', sep=' ', header=None) # lazy way to read the data
     # df[1] is just an integer 200. I don't know why.
     # Below are Information which won't be available in the experimental data: (i.e. labels usable for training)
     num_events = df[0]
@@ -184,27 +184,18 @@ if __name__=='__main__':
         if num>20:
             break
 
-    # stuck_point_count = 0
-    # for idx, line in enumerate(time_derivative):
-    #     argmax = np.argmax(long_matrix @ line)
-    #     ind = np.unravel_index(argmax, long_matrix.shape[:-1])
-    #     if ind[0]!=np.clip(ind[0], 1, long_matrix.shape[0]-2):
-    #         stuck_point_count+=1
-    #     if ind[1]!=np.clip(ind[1], 1, long_matrix.shape[1]-2):
-    #         stuck_point_count+=1
-    #     if ind[2]!=np.clip(ind[2], 1, long_matrix.shape[2]-2):
-    #         stuck_point_count+=1
-    #     print(idx, ind, stuck_point_count/np.clip(idx,1,None))
+    """
+    Log of failed methods:
 
-    # for i in range(112, 125):
-    #     sns.heatmap(long_matrix[i]@time_derivative[0])
-    #     plt.title(f'ind={i}')
-    #     plt.show()
-    if False: # useless methods
-        for ind, line in enumerate(time_derivative):
-            mask = is_local_max_3d(long_matrix@line)
-            print(f'{ind=}, {mask.sum()=}')
-        laplacian3d = np.zeros([3,3,3])
-        laplacian3d[np.unravel_index(range(27)[::2], (3,3,3))] = -1
-        laplacian3d[::2,::2,::2] = 0
-        laplacian3d[1,1,1] = 6
+    I also tried creating a 3D instead of a 1D convolution result,
+    where the other two dimension are the variation of the rise_time and decay_time in the basis.
+    However, this was proven to be a terrible idea as
+    1. The variation in these two new directions are basically zero, compared to the variation in the time_difference dimension. So a specialized algorithm would be needed to extract where the hot spots are.
+    2. Even if we did manage to extract these hot spots, their rise_time and decay_time value do not match the rise_time and decay_time values exactly. 
+        i.e. where the the convolution result is highest is NOT where (the (rise_time, decay_time) of the basis)==(the (rise_time, decay_time) of the signal).
+    So in the end I just stuck with using these values.
+    3. I also tried using the Fourier and Laplace transform of the expected signal shape, but got stuck after
+        3.1 Not getting any analytical form of the integral using wolframalpha
+        3.2 Changing the basis shape to a linear-rise exponential fall so that it does have an analytical solution after integration; but even then I ask myself:
+            so what? I have an analytical equation of what a signal containting is expected to look like wrt. (omega) or (s). And now what am I going to do with that information ¯\\_(ツ)_/¯
+    """
