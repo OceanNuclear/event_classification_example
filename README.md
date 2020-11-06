@@ -1,4 +1,19 @@
-# Classifying events in a nuclear physics experiment - an example
+# Ocean's comments
+This repo is forked from [Geir's repo](https://github.com/geirtul/event_classification_example). My data analysis scripts are stored in the data/ folder.
+
+## Ocean's data analysis
+- Data analysis for the spatial peaks classification
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/oceannuclear/event_classification_example/HEAD?filepath=data%2Fspatial_peaks.ipynb)
+
+- Data analysis for the temporal peaks classification using convolution
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/oceannuclear/event_classification_example/HEAD?filepath=data%2Ftemporal_peaks_convolve.ipynb)
+
+- Data analsysis for the temporal peaks classification using cluster analysis/ unsupervised learning
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/oceannuclear/event_classification_example/HEAD?filepath=data%2Ftemporal_peaks_cluster.ipynb)
+
+# Geir's comments
+Classifying events in a nuclear physics experiment - an example
+
 Standalone repository for classification example on simulated data that can be used in ML course.
 
 # Content
@@ -32,7 +47,7 @@ for easier re-use.
   * file with 200k events, compressed to comply with githubs max file size for regular repositories.
 * training_pm_nosat_150k.dat.gz
   * file with 150k traces, compressed.
-
+* 3 python files used for data analysis. Placed in the same directory for convenience.
 
 # TODO:
 * Add example on model saving
